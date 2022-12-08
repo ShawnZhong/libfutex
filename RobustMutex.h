@@ -20,6 +20,10 @@ class RobustMutex {
 
   void lock() { futex.lock(lock_impl); }
   void unlock() { futex.unlock(unlock_impl); }
+  [[nodiscard]] bool is_locked() const {
+    uint32_t val = futex.get_val();
+    return val != FUTEX_OWNER_DIED && val != 0;
+  }
 
  private:
   static void lock_impl(std::atomic<uint32_t>& val) {

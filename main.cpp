@@ -1,6 +1,9 @@
 
 #include <spdlog/spdlog.h>
 
+#include <catch2/catch_session.hpp>
+#include <catch2/catch_test_macros.hpp>
+
 #include "RobustMutex.h"
 #include "RobustSpinlock.h"
 
@@ -11,25 +14,57 @@ void test_robust() {
   T ftx1;
   T ftx2;
 
-  std::jthread t1([&]() {
-    Futex::rlist.print();
+  auto check_both_unlocked = [&] {
+    REQUIRE(!ftx1.is_locked());
+    REQUIRE(!ftx2.is_locked());
+    REQUIRE(Futex::rlist.size() == 0);
+  };
+
+  auto check_both_locked = [&] {
+    REQUIRE(ftx1.is_locked());
+    REQUIRE(ftx2.is_locked());
+    REQUIRE(Futex::rlist.size() == 2);
+  };
+
+  auto lock_both = [&] {
     ftx1.lock();
+    REQUIRE(ftx1.is_locked());
+    REQUIRE(Futex::rlist.size() == 1);
     ftx2.lock();
-    Futex::rlist.print();
+    REQUIRE(ftx2.is_locked());
+    REQUIRE(Futex::rlist.size() == 2);
+  };
+
+  auto unlock_both = [&] {
+    ftx1.unlock();
+    REQUIRE(!ftx1.is_locked());
+    REQUIRE(Futex::rlist.size() == 1);
+    ftx2.unlock();
+    REQUIRE(!ftx2.is_locked());
+    REQUIRE(Futex::rlist.size() == 0);
+  };
+
+  check_both_unlocked();
+
+  std::thread thread([&] {
+    check_both_unlocked();
+    lock_both();
+    check_both_locked();
+    // We don't unlock the futexes here.
   });
+  thread.join();
 
-  ftx1.lock();
-  ftx2.lock();
-  Futex::rlist.print();
+  // The kernel should have unlocked the futexes left by the thread.
+  check_both_unlocked();
 
-  ftx1.unlock();
-  Futex::rlist.print();
-  ftx2.unlock();
-  Futex::rlist.print();
+  lock_both();
+  check_both_locked();
 
-  ftx1.lock();
-  ftx2.lock();
-  Futex::rlist.print();
+  unlock_both();
+  check_both_unlocked();
+
+  lock_both();
+  check_both_locked();
 }
 
 template <typename T>
@@ -38,16 +73,20 @@ void test_sync() {
 
   ftx.lock();
 
+  std::this_thread::sleep_for(std::chrono::seconds(1));
+
   std::jthread t1([&]() { ftx.lock(); });
 
-  std::this_thread::sleep_for(std::chrono::seconds(3));
+  std::this_thread::sleep_for(std::chrono::seconds(1));
   ftx.unlock();
 }
 
-int main() {
+TEST_CASE("RobustSpinlock", "[RobustSpinlock]") {
+  SECTION("robust") { test_robust<RobustSpinlock>(); }
+  SECTION("sync") { test_sync<RobustSpinlock>(); }
+}
+
+int main(int argc, char* argv[]) {
   spdlog::set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%^%l%$] [%s:%#] [%t] %v");
-  test_robust<RobustSpinlock>();
-  test_sync<RobustSpinlock>();
-  test_robust<RobustMutex>();
-  test_sync<RobustMutex>();
+  return Catch::Session().run(argc, argv);
 }

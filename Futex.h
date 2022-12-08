@@ -66,6 +66,8 @@ class Futex {
     this->prev.load()->next = this->next.load();
   }
 
+  [[nodiscard]] uint32_t get_val() const { return val.load(); }
+
   /**
    * A thread-local list of futexes owned by the thread.
    */
@@ -107,6 +109,16 @@ class Futex {
     }
 
     void print() const { SPDLOG_INFO("{}", fmt::streamed(*this)); }
+
+    [[nodiscard]] size_t size() const {
+      size_t size = 0;
+      auto* ftx = (Futex*)head.list.next;
+      while (ftx != (Futex*)&head.list) {
+        size++;
+        ftx = ftx->next;
+      }
+      return size;
+    }
 
     friend std::ostream& operator<<(std::ostream& os, const RobustList& rl) {
       os << "RobustList (" << &rl << ") ";

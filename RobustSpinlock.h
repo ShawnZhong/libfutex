@@ -22,6 +22,7 @@ class RobustSpinlock {
 
   void lock() { futex.lock(lock_impl); }
   void unlock() { futex.unlock(unlock_impl); }
+  [[nodiscard]] bool is_locked() const { return futex.get_val() != UNLOCKED; }
 
  private:
   static void lock_impl(std::atomic<uint32_t>& val) {
