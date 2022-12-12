@@ -30,7 +30,7 @@ class Futex {
    * Futex value.
    * Reference:
    *    https://docs.kernel.org/locking/robust-futex-ABI.html
-   *    https://www.kernel.org/doc/Documentation/robust-futexes.txt
+   *    https://docs.kernel.org/locking/robust-futexes.html
    */
   std::atomic<uint32_t> val;
 
