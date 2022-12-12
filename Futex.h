@@ -10,8 +10,7 @@
 
 namespace libfutex {
 
-static constexpr int FUTEX_VALUE_OFFSET = 16;
-inline static thread_local const int tid = syscall(SYS_gettid);
+inline static thread_local const uint32_t tid = (uint32_t)syscall(SYS_gettid);
 
 class Futex {
   /**
@@ -29,8 +28,8 @@ class Futex {
   /**
    * Futex value.
    * Reference:
-   *    https://docs.kernel.org/locking/robust-futex-ABI.html
    *    https://docs.kernel.org/locking/robust-futexes.html
+   *    https://docs.kernel.org/locking/robust-futex-ABI.html
    */
   std::atomic<uint32_t> val;
 
@@ -84,7 +83,7 @@ class Futex {
         /**
          * Relative offset to the futex value.
          */
-        .futex_offset = FUTEX_VALUE_OFFSET,
+        .futex_offset = offsetof(Futex, val),
 
         /**
          * The address of the to-be-taken lock used to avoid race condition.
@@ -99,10 +98,9 @@ class Futex {
      * exits.
      */
     RobustList() {
-      static_assert(offsetof(Futex, val) == FUTEX_VALUE_OFFSET);
-      auto rc = syscall(SYS_set_robust_list, &head.list, sizeof(head));
+      int rc = (int) syscall(SYS_set_robust_list, &head.list, sizeof(head));
       if (rc == 0) {
-        SPDLOG_TRACE("set_robust_list({})", (void*)&head.list);
+        SPDLOG_DEBUG("set_robust_list({})", (void*)&head.list);
       } else {
         SPDLOG_ERROR("set_robust_list failed: {}", strerror(rc));
       }
@@ -144,13 +142,17 @@ class Futex {
 
   friend std::ostream& operator<<(std::ostream& os, const Futex& f) {
     uint32_t v = f.val.load();
+    void* a = (void*)&f.val;
     void* p = f.prev.load();
     void* n = f.next.load();
+
     if (v & ~FUTEX_TID_MASK) {
-      os << fmt::format("Futex{{val = {} | {:#x}, prev = {}, next = {}}}",
-                        v & FUTEX_TID_MASK, v & ~FUTEX_TID_MASK, p, n);
+      os << fmt::format(
+          "Futex{{val = {} | {:#x}, &val = {}, prev = {}, next = {}}}",
+          v & FUTEX_TID_MASK, v & ~FUTEX_TID_MASK, a, p, n);
     } else {
-      os << fmt::format("Futex{{val = {}, prev = {}, next = {}}}", v, p, n);
+      os << fmt::format("Futex{{val = {}, &val = {}, prev = {}, next = {}}}", v,
+                        a, p, n);
     }
     return os;
   }

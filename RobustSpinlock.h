@@ -26,21 +26,19 @@ class RobustSpinlock {
 
  private:
   static void lock_impl(std::atomic<uint32_t>& val) {
-    const void* addr = reinterpret_cast<std::byte*>(&val) - FUTEX_VALUE_OFFSET;
     uint32_t expected = UNLOCKED;
     while (!val.compare_exchange_strong(expected, tid)) {
       expected = UNLOCKED;
     }
-    SPDLOG_INFO("acquired spinlock {}", addr);
+    SPDLOG_DEBUG("acquired spinlock {}", fmt::ptr(&val));
   }
 
   static void unlock_impl(std::atomic<uint32_t>& val) {
-    const void* addr = reinterpret_cast<std::byte*>(&val) - FUTEX_VALUE_OFFSET;
     uint32_t expected = tid;
     if (!val.compare_exchange_strong(expected, UNLOCKED)) {
-      SPDLOG_WARN("released unlocked spinlock {}", addr);
+      SPDLOG_WARN("released unlocked spinlock {}", fmt::ptr(&val));
     } else {
-      SPDLOG_INFO("released spinlock {}", addr);
+      SPDLOG_DEBUG("released spinlock {}", fmt::ptr(&val));
     }
   }
 };

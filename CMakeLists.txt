@@ -9,4 +9,5 @@ FetchContent_Declare(Catch2 GIT_REPOSITORY https://github.com/catchorg/Catch2.gi
 FetchContent_MakeAvailable(spdlog Catch2)
 
 add_executable(main main.cpp Futex.h RobustMutex.h RobustSpinlock.h)
+target_compile_options(main PRIVATE -Wall -Wextra -Wpedantic -Wconversion -Werror)
 target_link_libraries(main spdlog::spdlog Catch2::Catch2)

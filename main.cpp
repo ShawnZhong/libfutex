@@ -1,9 +1,8 @@
 #ifndef NDEBUG
 #define SPDLOG_ACTIVE_LEVEL SPDLOG_LEVEL_TRACE
-#else
-#define SPDLOG_ACTIVE_LEVEL SPDLOG_LEVEL_OFF
 #endif
 
+#include <cxxabi.h>
 #include <spdlog/cfg/env.h>
 #include <spdlog/spdlog.h>
 
@@ -16,7 +15,22 @@
 using namespace libfutex;
 
 template <typename T>
+std::string type_name() {
+  const char* mangled = typeid(T).name();
+  int status;
+  char* demangled = abi::__cxa_demangle(mangled, nullptr, nullptr, &status);
+  if (status == 0) {
+    std::string result(demangled);
+    std::free(demangled);
+    return result;
+  } else {
+    return mangled;
+  }
+}
+
+template <typename T>
 void test_robust() {
+  SPDLOG_INFO("Testing robustness of {}", type_name<T>());
   T ftx1;
   T ftx2;
 
@@ -52,13 +66,12 @@ void test_robust() {
 
   check_both_unlocked();
 
-  std::thread thread([&] {
+  std::thread([&] {
     check_both_unlocked();
     lock_both();
     check_both_locked();
     // We don't unlock the futexes here.
-  });
-  thread.join();
+  }).join();
 
   // The kernel should have unlocked the futexes left by the thread.
   check_both_unlocked();
@@ -74,25 +87,26 @@ void test_robust() {
 }
 
 template <typename T>
-void test_lock() {
+void test_sync() {
+  SPDLOG_INFO("Testing synchronization of {}", type_name<T>());
   T ftx;
-
   ftx.lock();
 
   std::this_thread::sleep_for(std::chrono::seconds(1));
 
-  std::jthread t1([&]() { ftx.lock(); });
+  std::thread t1([&]() { ftx.lock(); });
 
   std::this_thread::sleep_for(std::chrono::seconds(1));
   ftx.unlock();
+
+  t1.join();
 }
 
 TEST_CASE("RobustSpinlock::robust") { test_robust<RobustSpinlock>(); }
-TEST_CASE("RobustMutex::lock") { test_lock<RobustSpinlock>(); }
+TEST_CASE("RobustSpinlock::sync") { test_sync<RobustSpinlock>(); }
 
 int main(int argc, char* argv[]) {
   spdlog::set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%^%l%$] [%s:%#] [%t] %v");
   spdlog::cfg::load_env_levels();
   return Catch::Session().run(argc, argv);
-  return 0;
 }
