@@ -24,18 +24,19 @@ the [glibc-2.36](https://github.com/bminor/glibc/tree/glibc-2.36)
 source code.
 
 - `struct robust_list_head` is an userspace per-thread data structure used to
-  keep track of futexes that the thread has acquired, which need to be released
-  by the kernel when the thread exits. It is defined
+  keep track of futexes that the thread has acquired. It is registered with the
+  Linux kernel
+  via [`set_robust_list`](https://man7.org/linux/man-pages/man2/set_robust_list.2.html)
+  so that when the thread exits (either normally or abnormally), the kernel can
+  iterate through the list and release the futexes that the thread has
+  acquired. `struct robust_list_head` is defined
   in [`linux/futex.h`](https://github.com/torvalds/linux/blob/8cb1ae19bfae92def42c985417cd6e894ddaa047/include/uapi/linux/futex.h#L89-L122)
-  as part of the Linux syscall ABI, and registered to the kernel
-  via [set_robust_list](https://man7.org/linux/man-pages/man2/set_robust_list.2.html).
+  as part of the Linux syscall ABI.
 
-- In glibc, the underlying data structure behind `pthread_t` is `struct
-  pthread`. It encapsulates information about the thread, including thread id,
-  start function pointer, arguments, etc. It also contains a
-  field [`struct robust_list_head robust_head`]((https://github.com/bminor/glibc/blob/4e21c2075193e406a92c0d1cb091a7c804fda4d9/nptl/descr.h#L179))
-  for
-  the robust futex list.
+- In glibc, the `struct robust_list_head` is stored in the `robust_list`
+  field
+  of [`struct pthread`](https://github.com/bminor/glibc/blob/4e21c2075193e406a92c0d1cb091a7c804fda4d9/nptl/descr.h#L179),
+  which is the struct pointed to by `pthread_t`.
 
 - When a process first starts, `robust_head` is initialized and registered
   with the kernel with `set_robust_list` system call. The relevant code is in
