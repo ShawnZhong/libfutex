@@ -8,7 +8,6 @@
 #include "Futex.h"
 
 namespace libfutex {
-
 class RobustSpinlock {
   static constexpr uint32_t UNLOCKED = FUTEX_OWNER_DIED;
   Futex futex{UNLOCKED};

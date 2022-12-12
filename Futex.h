@@ -9,6 +9,8 @@
 #include <atomic>
 #include <iostream>
 
+#include "RobustList.h"
+
 namespace libfutex {
 
 inline static thread_local const uint32_t tid = (uint32_t)syscall(SYS_gettid);
@@ -36,7 +38,9 @@ class Futex {
 
  public:
   Futex() = default;
-  explicit Futex(uint32_t val) : val(val) {}
+  explicit Futex(uint32_t val) : val(val) {
+    static_assert(offsetof(Futex, val) == FUTEX_OFFSET);
+  }
 
   template <typename Fn>
   void lock(Fn&& fn) {
@@ -71,73 +75,6 @@ class Futex {
   }
 
   [[nodiscard]] uint32_t get_val() const { return val.load(); }
-
-  /**
-   * A thread-local list of futexes owned by the thread.
-   */
-  class RobustList {
-    /**
-     * Per-thread list head
-     */
-    robust_list_head head = {
-        /**
-         * The head of the list. Points back to itself if empty.
-         */
-        .list = {.next = &head.list},
-
-        /**
-         * Relative offset to the futex value.
-         */
-        .futex_offset = offsetof(Futex, val),
-
-        /**
-         * The address of the to-be-taken lock used to avoid race condition.
-         */
-        .list_op_pending = nullptr,
-    };
-
-    /**
-     * Call `set_robust_list` to register the robust list to the kernel, so the
-     * kernel can clean up the futexes owned by the thread when the thread
-     * exits.
-     */
-    RobustList() {
-      int rc = (int)syscall(SYS_set_robust_list, &head.list, sizeof(head));
-      if (rc == 0) {
-        SPDLOG_DEBUG("set_robust_list({})", (void*)&head.list);
-      } else {
-        SPDLOG_ERROR("set_robust_list failed: {}", strerror(rc));
-      }
-    }
-
-   public:
-    void print() const { std::cout << *this << std::endl; }
-
-    [[nodiscard]] size_t size() const {
-      size_t size = 0;
-      auto* ftx = (Futex*)head.list.next;
-      while (ftx != (Futex*)&head.list) {
-        size++;
-        ftx = ftx->next;
-      }
-      return size;
-    }
-
-    friend std::ostream& operator<<(std::ostream& os, const RobustList& rl) {
-      os << "RobustList (" << &rl << ") ";
-      if (rl.head.list.next == &rl.head.list) {
-        os << "{}";
-      } else {
-        os << "{\n";
-        for (auto* p = rl.head.list.next; p != &rl.head.list; p = p->next) {
-          os << "\t" << p << ": " << *reinterpret_cast<Futex*>(p) << ", \n";
-        }
-        os << "}";
-      }
-      return os;
-    }
-    friend class Futex;
-  };
 
   /**
    * A thread-local RobustList instance. The constructor is called when the
