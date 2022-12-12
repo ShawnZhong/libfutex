@@ -102,7 +102,7 @@ class Futex {
       static_assert(offsetof(Futex, val) == FUTEX_VALUE_OFFSET);
       auto rc = syscall(SYS_set_robust_list, &head.list, sizeof(head));
       if (rc == 0) {
-        SPDLOG_DEBUG("set_robust_list succeeded");
+        SPDLOG_TRACE("set_robust_list({})", (void*)&head.list);
       } else {
         SPDLOG_ERROR("set_robust_list failed: {}", strerror(rc));
       }

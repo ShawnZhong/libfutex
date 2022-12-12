@@ -1,4 +1,10 @@
+#ifndef NDEBUG
+#define SPDLOG_ACTIVE_LEVEL SPDLOG_LEVEL_TRACE
+#else
+#define SPDLOG_ACTIVE_LEVEL SPDLOG_LEVEL_OFF
+#endif
 
+#include <spdlog/cfg/env.h>
 #include <spdlog/spdlog.h>
 
 #include <catch2/catch_session.hpp>
@@ -68,7 +74,7 @@ void test_robust() {
 }
 
 template <typename T>
-void test_sync() {
+void test_lock() {
   T ftx;
 
   ftx.lock();
@@ -81,12 +87,12 @@ void test_sync() {
   ftx.unlock();
 }
 
-TEST_CASE("RobustSpinlock", "[RobustSpinlock]") {
-  SECTION("robust") { test_robust<RobustSpinlock>(); }
-  SECTION("sync") { test_sync<RobustSpinlock>(); }
-}
+TEST_CASE("RobustSpinlock::robust") { test_robust<RobustSpinlock>(); }
+TEST_CASE("RobustMutex::lock") { test_lock<RobustSpinlock>(); }
 
 int main(int argc, char* argv[]) {
   spdlog::set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%^%l%$] [%s:%#] [%t] %v");
+  spdlog::cfg::load_env_levels();
   return Catch::Session().run(argc, argv);
+  return 0;
 }
