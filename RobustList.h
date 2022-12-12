@@ -54,13 +54,12 @@ class RobustList {
   }
 
  public:
+  /**
+   * @return the number of futexes in the robust list.
+   */
   [[nodiscard]] size_t size() const {
     size_t size = 0;
-    void* ftx = (void*)head.list.next;
-    while (ftx != (void*)&head.list) {
-      size++;
-      ftx = *(void**)ftx;
-    }
+    for (auto* p = head.list.next; p != &head.list; p = p->next) size++;
     return size;
   }
 

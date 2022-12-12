@@ -13,7 +13,7 @@
 
 namespace libfutex {
 
-inline static thread_local const uint32_t tid = (uint32_t)syscall(SYS_gettid);
+inline static thread_local const uint32_t tid = static_cast<uint32_t>(gettid());
 
 class Futex {
   /**
@@ -84,17 +84,20 @@ class Futex {
 
   friend std::ostream& operator<<(std::ostream& os, const Futex& f) {
     uint32_t v = f.val.load();
-    void* a = (void*)&f.val;
+    uint32_t val_rest = v & static_cast<uint32_t>(~FUTEX_TID_MASK);
+    uint32_t val_tid = v & FUTEX_TID_MASK;
+
+    void* addr = (void*)&f.val;
     void* p = f.prev.load();
     void* n = f.next.load();
 
-    if (v & ~FUTEX_TID_MASK) {
+    if (val_rest) {
       os << fmt::format(
-          "Futex{{val = {} | {:#x}, &val = {}, prev = {}, next = {}}}",
-          v & FUTEX_TID_MASK, v & ~FUTEX_TID_MASK, a, p, n);
+          "Futex{{val = {} | {:#x}, &val = {}, prev = {}, next = {}}}", val_tid,
+          val_rest, addr, p, n);
     } else {
-      os << fmt::format("Futex{{val = {}, &val = {}, prev = {}, next = {}}}", v,
-                        a, p, n);
+      os << fmt::format("Futex{{val = {}, &val = {}, prev = {}, next = {}}}",
+                        val_tid, addr, p, n);
     }
     return os;
   }
