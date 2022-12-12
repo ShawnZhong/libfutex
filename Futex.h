@@ -7,6 +7,7 @@
 #include <unistd.h>
 
 #include <atomic>
+#include <iostream>
 
 namespace libfutex {
 
@@ -58,11 +59,15 @@ class Futex {
 
   template <typename Fn>
   void unlock(Fn&& fn) {
-    fn(val);
+    rlist.head.list_op_pending = (robust_list*)this;
 
     // Remove the current futex from the robust list.
     this->next.load()->next = this->prev.load();
     this->prev.load()->next = this->next.load();
+
+    fn(val);
+
+    rlist.head.list_op_pending = nullptr;
   }
 
   [[nodiscard]] uint32_t get_val() const { return val.load(); }
@@ -91,14 +96,13 @@ class Futex {
         .list_op_pending = nullptr,
     };
 
-   public:
     /**
      * Call `set_robust_list` to register the robust list to the kernel, so the
      * kernel can clean up the futexes owned by the thread when the thread
      * exits.
      */
     RobustList() {
-      int rc = (int) syscall(SYS_set_robust_list, &head.list, sizeof(head));
+      int rc = (int)syscall(SYS_set_robust_list, &head.list, sizeof(head));
       if (rc == 0) {
         SPDLOG_DEBUG("set_robust_list({})", (void*)&head.list);
       } else {
@@ -106,7 +110,8 @@ class Futex {
       }
     }
 
-    void print() const { SPDLOG_INFO("{}", fmt::streamed(*this)); }
+   public:
+    void print() const { std::cout << *this << std::endl; }
 
     [[nodiscard]] size_t size() const {
       size_t size = 0;

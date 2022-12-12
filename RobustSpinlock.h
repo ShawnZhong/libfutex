@@ -19,6 +19,12 @@ class RobustSpinlock {
   RobustSpinlock(RobustSpinlock&&) = delete;
   RobustSpinlock& operator=(const RobustSpinlock&) = delete;
   RobustSpinlock& operator=(RobustSpinlock&&) = delete;
+  ~RobustSpinlock() {
+    if (is_locked()) {
+      SPDLOG_ERROR("Destructor called while locked");
+      unlock();
+    }
+  }
 
   void lock() { futex.lock(lock_impl); }
   void unlock() { futex.unlock(unlock_impl); }

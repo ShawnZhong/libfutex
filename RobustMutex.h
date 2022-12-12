@@ -17,6 +17,12 @@ class RobustMutex {
   RobustMutex(RobustMutex&&) = delete;
   RobustMutex& operator=(const RobustMutex&) = delete;
   RobustMutex& operator=(RobustMutex&&) = delete;
+  ~RobustMutex() {
+    if (is_locked()) {
+      SPDLOG_ERROR("Destructor called while locked");
+      unlock();
+    }
+  }
 
   void lock() { futex.lock(lock_impl); }
   void unlock() { futex.unlock(unlock_impl); }
@@ -57,7 +63,7 @@ class RobustMutex {
         uint32_t zero = 0;
         if (val.compare_exchange_strong(zero, tid)) {
           SPDLOG_DEBUG("acquired futex {} after waiting for {}", fmt::ptr(&val),
-                      expected & FUTEX_TID_MASK);
+                       expected & FUTEX_TID_MASK);
           return;
         }
       } else {
