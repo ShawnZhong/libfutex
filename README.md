@@ -79,7 +79,6 @@ source code.
   a mutex is released, it should be removed. The relevant code is
   in [nptl/descr.h](https://github.com/bminor/glibc/blob/4e21c2075193e406a92c0d1cb091a7c804fda4d9/nptl/descr.h#L178-L227)
 
-- See
-  [pthread_mutex_lock.c](https://github.com/bminor/glibc/blob/4e21c2075193e406a92c0d1cb091a7c804fda4d9/nptl/pthread_mutex_lock.c)
-  and [pthread_mutex_unlock.c](https://github.com/bminor/glibc/blob/4e21c2075193e406a92c0d1cb091a7c804fda4d9/nptl/pthread_mutex_unlock.c)
-  for the implementation of `pthread_mutex_lock` and `pthread_mutex_unlock`.
+- In glibc, the code for locking/unlocking robust mutex is in 
+  [pthread_mutex_lock.c](https://github.com/bminor/glibc/blob/4e21c2075193e406a92c0d1cb091a7c804fda4d9/nptl/pthread_mutex_lock.c#L200-L362)
+  and [pthread_mutex_unlock.c](https://github.com/bminor/glibc/blob/4e21c2075193e406a92c0d1cb091a7c804fda4d9/nptl/pthread_mutex_unlock.c#L139-L187)
